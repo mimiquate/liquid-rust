@@ -543,16 +543,8 @@ fn generate_evaluate_field(field: &FilterParameter<'_>) -> TokenStream {
         }
     } else {
         quote! {
-            match self.#name {
-                HashMap<_, _> => {
-                    let #name = self.#name.map(|(key, expr)| (key, expr.evaluate(runtime)?));
-                    let #name = self.#name.map(|(key, val)| (key, expr.evaluate(runtime)?));
-                },
-                Expression => {
-                    let #name = self.#name.evaluate(runtime)?;
-                    let #name = #to_type?;
-                }
-            }
+            let #name = self.#name.evaluate(runtime)?;
+            let #name = #to_type?;
         }
     }
 }
