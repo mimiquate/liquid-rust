@@ -444,7 +444,7 @@ fn generate_construct_keyword_list_field(
 
     quote! {
         // println!("{:?}", args.keyword);
-        let #name = args.keyword.map(|(key, value)| (key.to_owned(), value)).collect();
+        let #name = args.keyword.map(|(key, expression)| (key.to_owned(), expression)).collect();
 
         // while let ::std::option::Option::Some((key, value)) = args.keyword.next() {
         //     quote! {
@@ -542,9 +542,20 @@ fn generate_evaluate_field(field: &FilterParameter<'_>) -> TokenStream {
             }).transpose()?;
         }
     } else {
-        quote! {
-            let #name = self.#name.evaluate(runtime)?;
-            let #name = #to_type?;
+        if field.is_keyword_list() {
+            quote! {
+                let #name = self
+                    .#name
+                    .iter()
+                    .map(|(key, expr)| (key.into(), expr.evaluate(runtime).unwrap().to_value()))
+                    .collect::<liquid_core::Object>()
+                    .into();
+            }
+        } else {
+            quote! {
+                let #name = self.#name.evaluate(runtime)?;
+                let #name = #to_type?;
+            }
         }
     }
 }

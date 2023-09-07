@@ -18,7 +18,7 @@ struct TranslateArgs {
         description = "Variables to be used for revaluating liquid once translation is resolved.",
         mode = "keyword_list"
     )]
-    variables: Expression,
+    variables: HashMap<String, Expression>,
 }
 
 #[derive(Debug, FromFilterParameters, Display_filter)]
