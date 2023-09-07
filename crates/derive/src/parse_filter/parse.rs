@@ -49,6 +49,7 @@ fn generate_parse_filter(filter_parser: &ParseFilter<'_>) -> Result<TokenStream>
                         );
                     }
                     if let ::std::option::Option::Some(arg) = args.keyword.next() {
+                        println!("================== HERE 2");
                         return ::std::result::Result::Err(::liquid_core::error::Error::with_msg(format!("Unexpected named argument `{}`", arg.0)));
                     }
 

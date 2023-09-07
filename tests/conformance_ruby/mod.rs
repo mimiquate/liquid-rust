@@ -18,5 +18,6 @@ mod security_test;
 #[cfg(feature = "stdlib")]
 mod standard_filter_test;
 mod template_test;
+mod translate_test;
 mod trim_mode_test;
 mod variable_test;

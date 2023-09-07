@@ -61,7 +61,9 @@ impl<'a> FilterParameters<'a> {
         }
 
         let fields = match data {
-            Data::Struct(data) => FilterParametersFields::from_fields(&data.fields)?,
+            Data::Struct(data) => {
+                FilterParametersFields::from_fields(&data.fields)?
+            },
             Data::Enum(data) => {
                 return Err(Error::new_spanned(
                     data.enum_token,
@@ -213,6 +215,9 @@ impl<'a> FilterParameter<'a> {
                 }
                 _ => Err(Error::new_spanned(ty, Self::ERROR_INVALID_TYPE)),
             },
+            "HashMap" => {
+                Ok(false)
+            }
             "Expression" => {
                 if !path.arguments.is_empty() {
                     Err(Error::new_spanned(ty, Self::ERROR_INVALID_TYPE))
@@ -256,6 +261,11 @@ impl<'a> FilterParameter<'a> {
         self.meta.mode == FilterParameterMode::Keyword
     }
 
+    /// Returns whether this is a keyword list field.
+    fn is_keyword_list(&self) -> bool {
+        self.meta.mode == FilterParameterMode::KeywordList
+    }
+
     /// Returns the name of this parameter in liquid.
     ///
     /// That is, by default, the name of the field as a string. However,
@@ -279,6 +289,7 @@ impl<'a> ToTokens for FilterParameter<'a> {
 enum FilterParameterMode {
     Keyword,
     Positional,
+    KeywordList,
 }
 
 impl FromStr for FilterParameterMode {
@@ -286,6 +297,7 @@ impl FromStr for FilterParameterMode {
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         match s {
             "keyword" => Ok(FilterParameterMode::Keyword),
+            "keyword_list" => Ok(FilterParameterMode::KeywordList),
             "positional" => Ok(FilterParameterMode::Positional),
             s => Err(format!(
                 "Expected either \"keyword\" or \"positional\". Found \"{}\".",
@@ -424,6 +436,24 @@ fn generate_construct_positional_field(
     }
 }
 
+/// Generates the statement that assigns the keyword list argument.
+fn generate_construct_keyword_list_field(
+    field: &FilterParameter<'_>
+) -> TokenStream {
+    let name = &field.name;
+
+    quote! {
+        // println!("{:?}", args.keyword);
+        let #name = args.keyword.map(|(key, value)| (key.to_owned(), value)).collect();
+
+        // while let ::std::option::Option::Some((key, value)) = args.keyword.next() {
+        //     quote! {
+        //         let #key = #value;
+        //     }
+        // }
+    }
+}
+
 /// Generates the statement that evaluates the `Expression`
 fn generate_evaluate_field(field: &FilterParameter<'_>) -> TokenStream {
     let name = &field.name;
@@ -513,8 +543,16 @@ fn generate_evaluate_field(field: &FilterParameter<'_>) -> TokenStream {
         }
     } else {
         quote! {
-            let #name = self.#name.evaluate(runtime)?;
-            let #name = #to_type?;
+            match self.#name {
+                HashMap<_, _> => {
+                    let #name = self.#name.map(|(key, expr)| (key, expr.evaluate(runtime)?));
+                    let #name = self.#name.map(|(key, val)| (key, expr.evaluate(runtime)?));
+                },
+                Expression => {
+                    let #name = self.#name.evaluate(runtime)?;
+                    let #name = #to_type?;
+                }
+            }
         }
     }
 }
@@ -582,11 +620,28 @@ fn generate_impl_filter_parameters(filter_parameters: &FilterParameters<'_>) -> 
         .iter()
         .filter(|parameter| parameter.is_keyword());
 
+    // let keyword_list_fields = fields
+    //     .parameters
+    //     .iter()
+    //     .filter(|parameter| parameter.is_keyword_list());
+
+    let construct_keyword_list_fields = fields
+        .parameters
+        .iter()
+        .filter(|parameter| parameter.is_keyword_list())
+        .map(|field| generate_construct_keyword_list_field(field));
+
     let match_keyword_parameters_arms = fields
         .parameters
         .iter()
         .filter(|parameter| parameter.is_keyword())
         .map(generate_keyword_match_arm);
+
+    // let construct_keyword_list_field =
+    //     match keyword_list_field {
+    //         Some(field) => generate_construct_keyword_list_field(field),
+    //         None => None
+    //     };
 
     let unwrap_required_keyword_fields = fields
         .parameters
@@ -612,10 +667,15 @@ fn generate_impl_filter_parameters(filter_parameters: &FilterParameters<'_>) -> 
                 while let ::std::option::Option::Some(arg) = args.keyword.next() {
                     match arg.0 {
                         #(#match_keyword_parameters_arms)*
-                        keyword => return ::std::result::Result::Err(::liquid_core::error::Error::with_msg(format!("Unexpected named argument `{}`", keyword))),
+                        keyword => {
+                            println!("============== HERE 1");
+                            return ::std::result::Result::Err(::liquid_core::error::Error::with_msg(format!("Unexpected named argument `{}`", keyword)))
+                        },
                     }
                 }
                 #(#unwrap_required_keyword_fields)*
+
+                #(#construct_keyword_list_fields)*
 
                 Ok( #name { #comma_separated_field_names } )
             }
