@@ -65,7 +65,7 @@ impl Expression {
             }
             Expression::ObjectLiteral(ref obj_lit) => {
                 let obj = obj_lit
-                    .into_iter()
+                    .iter()
                     .map(|(key, expr)| match expr.try_evaluate(runtime) {
                         Some(result) => (key.into(), result.to_value()),
                         None => (key.into(), Value::Nil),
@@ -86,7 +86,7 @@ impl Expression {
                 runtime.get(&path)?
             }
             Expression::ObjectLiteral(obj_lit) => obj_lit
-                .into_iter()
+                .iter()
                 .map(|(key, expr)| (key.into(), expr.evaluate(runtime).unwrap().to_value()))
                 .collect::<Object>()
                 .into(),

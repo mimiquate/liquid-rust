@@ -625,15 +625,15 @@ fn generate_impl_filter_parameters(filter_parameters: &FilterParameters<'_>) -> 
             quote!{ let #field = #field.ok_or_else(|| ::liquid_core::error::Error::with_msg(concat!("Expected named argument `", #liquid_name, "`")))?; }
         });
 
-    let algo_de_keywords = if keyword_list_exist {
-        let lala = fields
+    let keywords_handling_block = if keyword_list_exist {
+        let keyword_list_fields_handling_blocks = fields
             .parameters
             .iter()
             .filter(|parameter| parameter.is_keyword_list())
-            .map(|field| generate_construct_keyword_list_field(field))
+            .map(generate_construct_keyword_list_field)
             .collect::<Vec<_>>();
 
-        lala.first().unwrap().clone()
+        keyword_list_fields_handling_blocks.first().unwrap().clone()
     } else {
         quote! {
             #(let mut #keyword_fields = ::std::option::Option::None;)*
@@ -642,7 +642,6 @@ fn generate_impl_filter_parameters(filter_parameters: &FilterParameters<'_>) -> 
                 match arg.0 {
                     #(#match_keyword_parameters_arms)*
                     keyword => {
-                        println!("============== HERE 1");
                         return ::std::result::Result::Err(::liquid_core::error::Error::with_msg(format!("Unexpected named argument `{}`", keyword)))
                     },
                 }
@@ -660,7 +659,7 @@ fn generate_impl_filter_parameters(filter_parameters: &FilterParameters<'_>) -> 
                 if let ::std::option::Option::Some(arg) = args.positional.next() {
                     return ::std::result::Result::Err(#too_many_args);
                 }
-                #algo_de_keywords
+                #keywords_handling_block
 
                 Ok( #name { #comma_separated_field_names } )
 
@@ -848,12 +847,3 @@ pub fn derive(input: &DeriveInput) -> TokenStream {
 
     output
 }
-
-// fn llamar_funcion_nueva(keyword_list_fields) -> TokenStream {
-//     let algo =
-//     fields
-//         .parameters
-//         .iter()
-//         .filter(|parameter| parameter.is_keyword_list())
-//         .map(|field| generate_construct_keyword_list_field(field));
-// }
