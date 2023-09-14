@@ -213,7 +213,6 @@ impl<'a> FilterParameter<'a> {
                 }
                 _ => Err(Error::new_spanned(ty, Self::ERROR_INVALID_TYPE)),
             },
-            "HashMap" => Ok(false),
             "Expression" => {
                 if !path.arguments.is_empty() {
                     Err(Error::new_spanned(ty, Self::ERROR_INVALID_TYPE))
@@ -437,14 +436,12 @@ fn generate_construct_keyword_list_field(field: &FilterParameter<'_>) -> TokenSt
     let name = &field.name;
 
     quote! {
-        // println!("{:?}", args.keyword);
-        let #name = args.keyword.map(|(key, expression)| (key.to_owned(), expression)).collect();
-
-        // while let ::std::option::Option::Some((key, value)) = args.keyword.next() {
-        //     quote! {
-        //         let #key = #value;
-        //     }
-        // }
+        let #name = Expression::with_object_literal(
+            args
+                .keyword
+                .map(|(key, expression)| (key.to_owned(), expression))
+                .collect::<HashMap<String, Expression>>()
+        );
     }
 }
 
@@ -536,20 +533,9 @@ fn generate_evaluate_field(field: &FilterParameter<'_>) -> TokenStream {
             }).transpose()?;
         }
     } else {
-        if field.is_keyword_list() {
-            quote! {
-                let #name = self
-                    .#name
-                    .iter()
-                    .map(|(key, expr)| (key.into(), expr.evaluate(runtime).unwrap().to_value()))
-                    .collect::<liquid_core::Object>()
-                    .into();
-            }
-        } else {
-            quote! {
-                let #name = self.#name.evaluate(runtime)?;
-                let #name = #to_type?;
-            }
+        quote! {
+            let #name = self.#name.evaluate(runtime)?;
+            let #name = #to_type?;
         }
     }
 }
