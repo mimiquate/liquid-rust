@@ -16,6 +16,11 @@ const KEY_SEPARATOR: char = '.';
 struct TranslateArgs {
     #[parameter(
         description = "Variables to be used for revaluating liquid once translation is resolved.",
+        mode = "keyword"
+    )]
+    size: Option<Expression>,
+    #[parameter(
+        description = "Variables to be used for revaluating liquid once translation is resolved.",
         mode = "keyword_list"
     )]
     variables: Expression,
@@ -44,6 +49,7 @@ impl Filter for TranslateFilter {
         let args = self.args.evaluate(runtime)?;
         println!("peñarol");
         println!("{:?}", args.variables);
+        println!("{:?}", args.size);
 
         // We load translations from the runtime (considering them as global variables).
         let translations_config = runtime.get(&[KNOCK_TRANSLATIONS_VAR_NAME.into()]);
