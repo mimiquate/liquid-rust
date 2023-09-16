@@ -83,6 +83,19 @@ impl<'a> FilterParameters<'a> {
             ));
         }
 
+        if fields.more_than_one_keyword_group_parameter() {
+            let grouped_keyword_fields = fields
+                .parameters
+                .iter()
+                .filter(|parameter| parameter.is_keyword_list())
+                .collect::<Vec<_>>();
+
+            return Err(Error::new_spanned(
+                grouped_keyword_fields.first(),
+                "Found more than one keyword_group parameter, this is not allowd.",
+            ));
+        }
+
         let name = ident;
         let evaluated_name = Self::parse_attrs(attrs)?
             .unwrap_or_else(|| Ident::new(&format!("Evaluated{}", name), Span::call_site()));
@@ -113,6 +126,16 @@ impl<'a> FilterParametersFields<'a> {
             .filter(|parameter| parameter.is_positional())
             .skip_while(|parameter| parameter.is_required())
             .find(|parameter| !parameter.is_optional())
+    }
+
+    /// Predicate that indicates the presence of more than one keyword group
+    /// argument
+    fn more_than_one_keyword_group_parameter(&self) -> bool {
+        self.parameters
+            .iter()
+            .filter(|parameter| parameter.is_keyword_list())
+            .count()
+            > 1
     }
 
     /// Tries to create a new `FilterParametersFields` from the given `Fields`
