@@ -21,7 +21,7 @@ struct TranslateArgs {
     size: Option<Expression>,
     #[parameter(
         description = "Variables to be used for revaluating liquid once translation is resolved.",
-        mode = "keyword_list"
+        mode = "keyword_group"
     )]
     variables: Expression,
 }

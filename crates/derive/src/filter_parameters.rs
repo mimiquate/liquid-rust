@@ -87,7 +87,7 @@ impl<'a> FilterParameters<'a> {
             let grouped_keyword_fields = fields
                 .parameters
                 .iter()
-                .filter(|parameter| parameter.is_keyword_list())
+                .filter(|parameter| parameter.is_keyword_group())
                 .collect::<Vec<_>>();
 
             return Err(Error::new_spanned(
@@ -133,7 +133,7 @@ impl<'a> FilterParametersFields<'a> {
     fn more_than_one_keyword_group_parameter(&self) -> bool {
         self.parameters
             .iter()
-            .filter(|parameter| parameter.is_keyword_list())
+            .filter(|parameter| parameter.is_keyword_group())
             .count()
             > 1
     }
@@ -280,8 +280,8 @@ impl<'a> FilterParameter<'a> {
     }
 
     /// Returns whether this is a keyword list field.
-    fn is_keyword_list(&self) -> bool {
-        self.meta.mode == FilterParameterMode::KeywordList
+    fn is_keyword_group(&self) -> bool {
+        self.meta.mode == FilterParameterMode::KeywordGroup
     }
 
     /// Returns the name of this parameter in liquid.
@@ -307,7 +307,7 @@ impl<'a> ToTokens for FilterParameter<'a> {
 enum FilterParameterMode {
     Keyword,
     Positional,
-    KeywordList,
+    KeywordGroup,
 }
 
 impl FromStr for FilterParameterMode {
@@ -315,7 +315,7 @@ impl FromStr for FilterParameterMode {
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         match s {
             "keyword" => Ok(FilterParameterMode::Keyword),
-            "keyword_list" => Ok(FilterParameterMode::KeywordList),
+            "keyword_group" => Ok(FilterParameterMode::KeywordGroup),
             "positional" => Ok(FilterParameterMode::Positional),
             s => Err(format!(
                 "Expected either \"keyword\" or \"positional\". Found \"{}\".",
@@ -455,7 +455,7 @@ fn generate_construct_positional_field(
 }
 
 /// Generates the statement that assigns the keyword list argument.
-fn generate_construct_keyword_list_field(field: &FilterParameter<'_>) -> TokenStream {
+fn generate_construct_keyword_group_field(field: &FilterParameter<'_>) -> TokenStream {
     let name = &field.name;
 
     quote! {
@@ -621,12 +621,12 @@ fn generate_impl_filter_parameters(filter_parameters: &FilterParameters<'_>) -> 
         .iter()
         .filter(|parameter| parameter.is_keyword());
 
-    let keyword_list_fields = fields
+    let keyword_group_fields = fields
         .parameters
         .iter()
-        .filter(|parameter| parameter.is_keyword_list());
+        .filter(|parameter| parameter.is_keyword_group());
 
-    let group_keyword_param_exists = keyword_list_fields.peekable().peek().is_some();
+    let group_keyword_param_exists = keyword_group_fields.peekable().peek().is_some();
 
     let match_keyword_parameters_arms = fields
         .parameters
@@ -643,11 +643,11 @@ fn generate_impl_filter_parameters(filter_parameters: &FilterParameters<'_>) -> 
             quote!{ let #field = #field.ok_or_else(|| ::liquid_core::error::Error::with_msg(concat!("Expected named argument `", #liquid_name, "`")))?; }
         });
 
-    let keyword_list_fields_handling_blocks = fields
+    let keyword_group_fields_handling_blocks = fields
         .parameters
         .iter()
-        .filter(|parameter| parameter.is_keyword_list())
-        .map(generate_construct_keyword_list_field)
+        .filter(|parameter| parameter.is_keyword_group())
+        .map(generate_construct_keyword_group_field)
         .collect::<Vec<_>>();
 
     let keyword_not_found_in_params_block = if group_keyword_param_exists {
@@ -669,7 +669,7 @@ fn generate_impl_filter_parameters(filter_parameters: &FilterParameters<'_>) -> 
     };
 
     let assign_grouped_keyword_block = if group_keyword_param_exists {
-        keyword_list_fields_handling_blocks.first().unwrap().clone()
+        keyword_group_fields_handling_blocks.first().unwrap().clone()
     } else {
         quote! {}
     };
